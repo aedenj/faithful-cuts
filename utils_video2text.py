@@ -68,8 +68,10 @@ output format: id | question
 """.strip()
 
 
-def load_tifa160_data(path='video_context_examples_0417.csv'):
-	# path = './dsg/data/' + path
+_DEFAULT_TIFA_CSV = Path(__file__).with_name("video_context_examples_0417.csv")
+
+
+def load_tifa160_data(path=_DEFAULT_TIFA_CSV):
 	data_df = pd.read_csv(path)
 	return data_df
 
