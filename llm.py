@@ -1,4 +1,3 @@
-import time
 from abc import ABC, abstractmethod
 
 import torch
@@ -140,34 +139,29 @@ class OpenaiLLM(BaseLLM):
         self,
         model_name: str = "gpt-4o",
         api_key: str | None = None,
-        retry_seconds: int = 10,
+        max_retries: int = 8,
     ):
         super().__init__(model_name)
 
         import openai
 
-        self.client = openai.OpenAI(api_key=api_key)
-        self._retry_seconds = retry_seconds
+        # SDK retries eligible 429s with exponential backoff + honors the
+        # Retry-After header (per OpenAI's rate-limits guide). Auth/quota
+        # errors propagate as intended so they can be acted on.
+        self.client = openai.OpenAI(api_key=api_key, max_retries=max_retries)
 
     def delete_model(self) -> None:
         self.client = None
 
     def completion(self, prompt: str, config: dict) -> str:
-        while True:
-            try:
-                response = self.client.chat.completions.create(
-                    model=self.model_name,
-                    messages=[
-                        {"role": "system", "content": _EXTRACTOR_SYSTEM_PROMPT},
-                        {"role": "user", "content": prompt},
-                    ],
-                    temperature=config.get("temperature", 0),
-                    max_tokens=config["max_new_tokens"],
-                    top_p=config.get("top_p", 1),
-                )
-                break
-            except Exception as e:
-                print(e)
-                time.sleep(self._retry_seconds)
-
+        response = self.client.chat.completions.create(
+            model=self.model_name,
+            messages=[
+                {"role": "system", "content": _EXTRACTOR_SYSTEM_PROMPT},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=config.get("temperature", 0),
+            max_tokens=config["max_new_tokens"],
+            top_p=config.get("top_p", 1),
+        )
         return response.choices[0].message.content
